@@ -22,7 +22,11 @@ To get around this, I went with a residual learning approach. Instead of predict
 
 ### Validation Strategy & Leakage Fixes
 Initially, my GroupKFold CV score was inflated to 0.98+ because early morning ratios were computed globally before splitting the folds. After auditing, I fixed it by generating all features strictly fold-wise. This means validation geohashes are treated as completely unseen during training, with zero access to their Day 49 early morning demand. 
-Once the leakage was resolved, my strict unseen CV R2 score became a solid 0.888.
+Once the leakage was resolved, the final out-of-fold (OOF) CV R² scores for my best version (vD - residual learning) were:
+- **LightGBM CV R²**: 0.90676
+- **XGBoost CV R²**: 0.90832
+- **CatBoost CV R²**: 0.91031
+- **Final 3-Model Ensemble CV R²**: 0.91199 (uniform & SLSQP optimized)
 
 ### Models & Ensembling
 I trained three different gradient boosting models across 5 folds:
