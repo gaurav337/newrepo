@@ -1,0 +1,44 @@
+Hey, here is a quick write-up of my approach for this traffic demand prediction challenge.
+
+### The Big Picture / Core Strategy
+When I first looked at the data, I noticed a massive mismatch between train and test: the train set only has early morning data for Day 49 (slots 0-8), but the test set is asking us to predict daytime traffic (slots 9-55). Tree-based models (like LightGBM or XGBoost) are notoriously bad at extrapolating values outside their training range. If I used raw slots or hour features, the model would completely fail on daytime slots.
+
+To get around this, I went with a residual learning approach. Instead of predicting the raw demand directly, the models predict the change (residual) compared to Day 48's demand at the exact same slot. This keeps the model time-invariant, meaning it implicitly relies on Day 48 to capture the overall daily traffic shape while the models just learn the scaling differences.
+
+### Feature Engineering
+1. **Early Morning Scaling Ratios:** 
+   I calculated how much traffic changed on Day 49 early morning compared to Day 48 early morning. This acts as a scaling coefficient for the whole day. Since we can't leak validation labels during GroupKFold CV, I calculated these ratios using Leave-One-Out (LOO) means during training, and full means at test inference.
+   
+2. **Hierarchical Fallback (Unseen Geohashes):**
+   There are 123 unseen geohashes in the test set that don't have early morning records on Day 49. To make sure they don't break, I built a hierarchical fallback chain: 
+   `Geohash level -> Prefix-5 -> Prefix-4 -> Prefix-3 -> Prefix-2 -> Global Average`
+   I smoothed these ratios at each level using Bayesian shrinkage (with a lambda of 150.0). Since 97.6% of unseen test geohashes share a 5-character prefix with the training geohashes, they fall back to very localized prefix averages rather than a generic global mean.
+
+3. **Deterministic Encodings:**
+   To avoid category misalignment between train and test, I wrote fixed dictionaries for categorical features (Weather, RoadType) and mapped geohash characters mathematically. For prefix features, I used stable MD5 hashing.
+
+4. **Other Features:**
+   I also added spatial prefix hashes, temperature-lane interactions, and slot ranks to capture relative traffic density profiles.
+
+### Validation Strategy & Leakage Fixes
+Initially, my GroupKFold CV score was inflated to 0.98+ because early morning ratios were computed globally before splitting the folds. After auditing, I fixed it by generating all features strictly fold-wise. This means validation geohashes are treated as completely unseen during training, with zero access to their Day 49 early morning demand. 
+Once the leakage was resolved, my strict unseen CV R2 score became a solid 0.888.
+
+### Models & Ensembling
+I trained three different gradient boosting models across 5 folds:
+- LightGBM Regressor
+- XGBoost Regressor
+- CatBoost Regressor
+
+The final submission is a simple average of the predictions from all three models.
+
+### Tools Used
+- Python 3.9
+- Pandas & NumPy for data processing
+- Scikit-learn (GroupKFold, metrics)
+- LightGBM, XGBoost, CatBoost for modeling
+
+### Source Files Included in Archive
+- `src/features.py`: Feature engineering pipeline & Bayesian fallback code.
+- `src/train.py`: The cross-validation and training loop.
+- `src/submit.py`: Test set inference and final submission generation.

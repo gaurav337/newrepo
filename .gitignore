@@ -1,0 +1,29 @@
+# Virtual Environment
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data files
+data/
+
+# Generated submissions
+submissions/
+
+# macOS
+.DS_Store
+
+# Environment variables
+.env
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
