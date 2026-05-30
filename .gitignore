@@ -27,3 +27,7 @@ submissions/
 
 # Logs
 *.log
+
+# Models and Training outputs
+*.pkl
+catboost_info/
